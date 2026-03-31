@@ -89,6 +89,82 @@ CONFIG.ux.TooltipManager = documents.DhTooltipManager;
 CONFIG.ux.TokenManager = new TokenManager();
 CONFIG.debug.triggers = false;
 
+CONFIG.ui.chat.CHAT_COMMANDS.dr = {
+    rgx: /^(?:\/dr)((?:\s)[^]*)?/,
+    fn: (_, match) => {
+        const argString = match[1]?.trim();
+        const result = argString ? rollCommandToJSON(argString) : { result: {} };
+        if (!result) {
+            ui.notifications.error(game.i18n.localize('DAGGERHEART.UI.Notifications.dualityParsing'));
+            return false;
+        }
+
+        const { result: rollCommand, flavor } = result;
+
+        const reaction = rollCommand.reaction;
+        const traitValue = rollCommand.trait?.toLowerCase();
+        const advantage = rollCommand.advantage
+            ? CONFIG.DH.ACTIONS.advantageState.advantage.value
+            : rollCommand.disadvantage
+              ? CONFIG.DH.ACTIONS.advantageState.disadvantage.value
+              : undefined;
+        const difficulty = rollCommand.difficulty;
+        const grantResources = rollCommand.grantResources;
+
+        const target = getCommandTarget({ allowNull: true });
+        const title =
+            (flavor ?? traitValue)
+                ? game.i18n.format('DAGGERHEART.UI.Chat.dualityRoll.abilityCheckTitle', {
+                      ability: game.i18n.localize(SYSTEM.ACTOR.abilities[traitValue].label)
+                  })
+                : game.i18n.localize('DAGGERHEART.GENERAL.duality');
+
+        enrichedDualityRoll({
+            reaction,
+            traitValue,
+            target,
+            difficulty,
+            title,
+            label: game.i18n.localize('DAGGERHEART.GENERAL.dualityRoll'),
+            actionType: null,
+            advantage,
+            grantResources
+        });
+        return false;
+    }
+};
+
+CONFIG.ui.chat.CHAT_COMMANDS.fr = {
+    rgx: /^(?:\/fr)((?:\s)[^]*)?/,
+    fn: (_, match) => {
+        const argString = match[1]?.trim();
+        const result = argString ? rollCommandToJSON(argString) : { result: {} };
+
+        if (!result) {
+            ui.notifications.error(game.i18n.localize('DAGGERHEART.UI.Notifications.fateParsing'));
+            return false;
+        }
+
+        const { result: rollCommand, flavor } = result;
+        const fateTypeData = getFateTypeData(rollCommand?.type);
+
+        if (!fateTypeData)
+            return ui.notifications.error(game.i18n.localize('DAGGERHEART.UI.Notifications.fateTypeParsing'));
+
+        const { value: fateType, label: fateTypeLabel } = fateTypeData;
+        const target = getCommandTarget({ allowNull: true });
+        const title = flavor ?? game.i18n.localize('DAGGERHEART.GENERAL.fateRoll');
+
+        enrichedFateRoll({
+            target,
+            title,
+            label: fateTypeLabel,
+            fateType
+        });
+        return false;
+    }
+};
+
 Hooks.once('init', () => {
     game.system.api = {
         applications,
@@ -331,78 +407,6 @@ Hooks.on('renderJournalEntryPageProseMirrorSheet', (_, element) => {
 
 Hooks.on('renderHandlebarsApplication', (_, element) => {
     enricherRenderSetup(element);
-});
-
-Hooks.on('chatMessage', (_, message) => {
-    if (message.startsWith('/dr')) {
-        const result =
-            message.trim().toLowerCase() === '/dr' ? { result: {} } : rollCommandToJSON(message.replace(/\/dr\s?/, ''));
-        if (!result) {
-            ui.notifications.error(game.i18n.localize('DAGGERHEART.UI.Notifications.dualityParsing'));
-            return false;
-        }
-
-        const { result: rollCommand, flavor } = result;
-
-        const reaction = rollCommand.reaction;
-        const traitValue = rollCommand.trait?.toLowerCase();
-        const advantage = rollCommand.advantage
-            ? CONFIG.DH.ACTIONS.advantageState.advantage.value
-            : rollCommand.disadvantage
-              ? CONFIG.DH.ACTIONS.advantageState.disadvantage.value
-              : undefined;
-        const difficulty = rollCommand.difficulty;
-        const grantResources = rollCommand.grantResources;
-
-        const target = getCommandTarget({ allowNull: true });
-        const title =
-            (flavor ?? traitValue)
-                ? game.i18n.format('DAGGERHEART.UI.Chat.dualityRoll.abilityCheckTitle', {
-                      ability: game.i18n.localize(SYSTEM.ACTOR.abilities[traitValue].label)
-                  })
-                : game.i18n.localize('DAGGERHEART.GENERAL.duality');
-
-        enrichedDualityRoll({
-            reaction,
-            traitValue,
-            target,
-            difficulty,
-            title,
-            label: game.i18n.localize('DAGGERHEART.GENERAL.dualityRoll'),
-            actionType: null,
-            advantage,
-            grantResources
-        });
-        return false;
-    }
-
-    if (message.startsWith('/fr')) {
-        const result =
-            message.trim().toLowerCase() === '/fr' ? { result: {} } : rollCommandToJSON(message.replace(/\/fr\s?/, ''));
-
-        if (!result) {
-            ui.notifications.error(game.i18n.localize('DAGGERHEART.UI.Notifications.fateParsing'));
-            return false;
-        }
-
-        const { result: rollCommand, flavor } = result;
-        const fateTypeData = getFateTypeData(rollCommand?.type);
-
-        if (!fateTypeData)
-            return ui.notifications.error(game.i18n.localize('DAGGERHEART.UI.Notifications.fateTypeParsing'));
-
-        const { value: fateType, label: fateTypeLabel } = fateTypeData;
-        const target = getCommandTarget({ allowNull: true });
-        const title = flavor ?? game.i18n.localize('DAGGERHEART.GENERAL.fateRoll');
-
-        enrichedFateRoll({
-            target,
-            title,
-            label: fateTypeLabel,
-            fateType
-        });
-        return false;
-    }
 });
 
 Hooks.on(CONFIG.DH.HOOKS.hooksConfig.tagTeamStart, async data => {
